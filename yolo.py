@@ -197,28 +197,28 @@ class YoloLayer(Layer):
     def compute_output_shape(self, input_shape):
         return [(None, 1)]
 
-def _conv_block(inp, convs, do_skip=True, freeze = False):
+def _conv_block(inp, convs, do_skip=True, freeze = False, descongelar_ultima = False):
     x = inp
     count = 0
     
-    for conv in convs:
+    for i in range(len(convs)):
         if count == (len(convs) - 2) and do_skip:
             skip_connection = x
         count += 1
         
-        if conv['stride'] > 1: x = ZeroPadding2D(((1,0),(1,0)))(x) # unlike tensorflow darknet prefer left and top paddings
-        layer = Conv2D(conv['filter'], 
-                   conv['kernel'], 
-                   strides=conv['stride'], 
-                   padding='valid' if conv['stride'] > 1 else 'same', # unlike tensorflow darknet prefer left and top paddings
-                   name='conv_' + str(conv['layer_idx']), 
-                   use_bias=False if conv['bnorm'] else True)
-        if freeze:
-            layer.trainable = False
+        if convs[i]['stride'] > 1: x = ZeroPadding2D(((1,0),(1,0)))(x) # unlike tensorflow darknet prefer left and top paddings
+        layer = Conv2D(convs[i]['filter'], 
+                   convs[i]['kernel'], 
+                   strides=convs[i]['stride'], 
+                   padding='valid' if convs[i]['stride'] > 1 else 'same', # unlike tensorflow darknet prefer left and top paddings
+                   name='conv_' + str(convs[i]['layer_idx']), 
+                   use_bias=False if convs[i]['bnorm'] else True) 
+        if freeze: 
+            if i != len(convs)-1 or not descongelar_ultima:
+                layer.trainable = False
         x = layer(x)
-        if conv['bnorm']: x = BatchNormalization(epsilon=0.001, name='bnorm_' + str(conv['layer_idx']))(x)
-        if conv['leaky']: x = LeakyReLU(alpha=0.1, name='leaky_' + str(conv['layer_idx']))(x)
-        
+        if convs[i]['bnorm']: x = BatchNormalization(epsilon=0.001, name='bnorm_' + str(convs[i]['layer_idx']))(x)
+        if convs[i]['leaky']: x = LeakyReLU(alpha=0.1, name='leaky_' + str(convs[i]['layer_idx']))(x)
 
     return add([skip_connection, x]) if do_skip else x        
 
